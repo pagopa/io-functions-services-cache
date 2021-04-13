@@ -7,21 +7,18 @@
 
 import * as t from "io-ts";
 import { ValidationError } from "io-ts";
-import { readableReport } from "italia-ts-commons/lib/reporters";
-import { NonEmptyString } from "italia-ts-commons/lib/strings";
+import { readableReport } from "@pagopa/ts-commons/lib/reporters";
+import { NonEmptyString } from "@pagopa/ts-commons/lib/strings";
 
 // global app configuration
 export type IConfig = t.TypeOf<typeof IConfig>;
 // eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/ban-types
 export const IConfig = t.interface({
   /* eslint-disable @typescript-eslint/naming-convention */
+  AssetsStorageConnection: NonEmptyString,
   AzureWebJobsStorage: NonEmptyString,
 
-  COSMOSDB_KEY: NonEmptyString,
-  COSMOSDB_NAME: NonEmptyString,
-  COSMOSDB_URI: NonEmptyString,
-
-  QueueStorageConnection: NonEmptyString,
+  StorageConnection: NonEmptyString,
 
   isProduction: t.boolean
   /* eslint-enable @typescript-eslint/naming-convention */
