@@ -12,7 +12,7 @@
     "watch": "tsc -w",
     "extensions:install": "func extensions install",
     "start": "dotenv -e .env func start --javascript",
-    "predev": "npm-run-all generate build",
+    "predev": "npm-run-all build",
     "dev": "npm-run-all --parallel start watch",
     "test": "jest",
     "test:coverage": "jest --coverage",
