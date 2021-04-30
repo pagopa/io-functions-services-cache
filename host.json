@@ -23,7 +23,8 @@
       "hubName": "%SLOT_TASK_HUBNAME%",
       "localRpcEndpointEnabled": false,
       "storageProvider": {
-        "connectionStringName": "AzureWebJobsStorage"
+        "connectionStringName": "AzureWebJobsStorage",
+        "partitionCount": 8
       },
       "tracing": {
         "traceInputsAndOutputs": false,
