@@ -9,6 +9,12 @@ import * as t from "io-ts";
 import { ValidationError } from "io-ts";
 import { readableReport } from "@pagopa/ts-commons/lib/reporters";
 import { NonEmptyString } from "@pagopa/ts-commons/lib/strings";
+import {
+  IntegerFromString,
+  NonNegativeInteger
+} from "@pagopa/ts-commons/lib/numbers";
+
+const DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE = 500;
 
 // global app configuration
 export type IConfig = t.TypeOf<typeof IConfig>;
@@ -18,15 +24,19 @@ export const IConfig = t.interface({
   AssetsStorageConnection: NonEmptyString,
   AzureWebJobsStorage: NonEmptyString,
 
+  MaxServicesOrchestratorSize: NonNegativeInteger,
+
   StorageConnection: NonEmptyString,
 
   isProduction: t.boolean
-  /* eslint-enable @typescript-eslint/naming-convention */
 });
 
 // No need to re-evaluate this object for each call
 const errorOrConfig: t.Validation<IConfig> = IConfig.decode({
   ...process.env,
+  MaxServicesOrchestratorSize: IntegerFromString.decode(
+    process.env.MAX_SERVICES_ORCHESTRATOR_SIZE
+  ).getOrElse(DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE),
   isProduction: process.env.NODE_ENV === "production"
 });
 
