@@ -12,7 +12,7 @@
  */
 import { Context } from "@azure/functions";
 
-import { isLeft } from "fp-ts/lib/Either";
+import { isLeft, toError } from "fp-ts/lib/Either";
 import { StrMap } from "fp-ts/lib/StrMap";
 import { VisibleService } from "@pagopa/io-functions-commons/dist/src/models/visible_service";
 
@@ -21,9 +21,13 @@ import * as t from "io-ts";
 import { NonEmptyString } from "@pagopa/ts-commons/lib/strings";
 import { NonNegativeInteger } from "@pagopa/ts-commons/lib/numbers";
 import { ServiceScope } from "@pagopa/io-functions-commons/dist/generated/definitions/ServiceScope";
+import { array } from "fp-ts/lib/Array";
+import { taskEither, tryCatch } from "fp-ts/lib/TaskEither";
+import { getConfigOrThrow } from "../utils/config";
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const VisibleServices = t.record(t.string, VisibleService);
+export type VisibleServices = t.TypeOf<typeof VisibleServices>;
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const VisibleServiceCache = t.intersection([
   t.interface({
@@ -90,13 +94,44 @@ const UpdateVisibleServiceCache = async (context: Context): Promise<void> => {
 
   // start orchestrator to loop on every visible service
   // and to store it in a blob
-  await df
-    .getClient(context)
-    .startNew(
-      "UpdateVisibleServicesCacheOrchestrator",
-      undefined,
-      visibleServiceJson
-    );
+  const splittedVisibleServices = Object.values(visibleServiceJson).reduce(
+    (acc: ReadonlyArray<VisibleServices>, service, index) => {
+      if (index % getConfigOrThrow().MaxServicesOrchestratorSize === 0) {
+        return [
+          ...acc,
+          {
+            [service.serviceId]: service
+          }
+        ];
+      }
+      return [
+        ...acc.slice(0, -1),
+        {
+          ...acc[acc.length],
+          [service.serviceId]: service
+        }
+      ];
+    },
+    [{}] as ReadonlyArray<VisibleServices>
+  );
+  await array
+    .sequence(taskEither)(
+      splittedVisibleServices.map(_ =>
+        tryCatch(
+          () =>
+            df
+              .getClient(context)
+              .startNew("UpdateVisibleServicesCacheOrchestrator", undefined, _),
+          toError
+        )
+      )
+    )
+    .mapLeft(_ => {
+      context.log.error(
+        `UpdateVisibleServiceCache|ERROR|An error occurred starting the orchestrators ${_}`
+      );
+    })
+    .run();
 };
 
 export { UpdateVisibleServiceCache as index };
