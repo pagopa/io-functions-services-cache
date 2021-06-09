@@ -96,7 +96,10 @@ const UpdateVisibleServiceCache = async (context: Context): Promise<void> => {
   // and to store it in a blob
   const splittedVisibleServices = Object.values(visibleServiceJson).reduce(
     (acc: ReadonlyArray<VisibleServices>, service, index) => {
-      if (index % getConfigOrThrow().MaxServicesOrchestratorSize === 0) {
+      if (
+        index &&
+        index % getConfigOrThrow().MaxServicesOrchestratorSize === 0
+      ) {
         return [
           ...acc,
           {
@@ -107,7 +110,7 @@ const UpdateVisibleServiceCache = async (context: Context): Promise<void> => {
       return [
         ...acc.slice(0, -1),
         {
-          ...acc[acc.length],
+          ...acc[acc.length - 1],
           [service.serviceId]: service
         }
       ];
