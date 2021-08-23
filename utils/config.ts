@@ -13,6 +13,7 @@ import {
   IntegerFromString,
   NonNegativeInteger
 } from "@pagopa/ts-commons/lib/numbers";
+import { fromNullable } from "fp-ts/lib/Option";
 
 const DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE = 500;
 
@@ -24,7 +25,13 @@ export const IConfig = t.interface({
   AssetsStorageConnection: NonEmptyString,
   AzureWebJobsStorage: NonEmptyString,
 
+  COSMOSDB_KEY: NonEmptyString,
+  COSMOSDB_NAME: NonEmptyString,
+  COSMOSDB_URI: NonEmptyString,
+
   MaxServicesOrchestratorSize: NonNegativeInteger,
+
+  SERVICEID_EXCLUSION_LIST: t.readonlyArray(NonEmptyString),
 
   StorageConnection: NonEmptyString,
 
@@ -37,6 +44,9 @@ const errorOrConfig: t.Validation<IConfig> = IConfig.decode({
   MaxServicesOrchestratorSize: IntegerFromString.decode(
     process.env.MAX_SERVICES_ORCHESTRATOR_SIZE
   ).getOrElse(DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE),
+  SERVICEID_EXCLUSION_LIST: fromNullable(process.env.SERVICEID_EXCLUSION_LIST)
+    .map(_ => _.split(";"))
+    .getOrElse([]),
   isProduction: process.env.NODE_ENV === "production"
 });
 
