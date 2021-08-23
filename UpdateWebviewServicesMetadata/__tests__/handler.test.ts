@@ -2,7 +2,11 @@ import { ServiceModel } from "@pagopa/io-functions-commons/dist/src/models/servi
 import { taskEither } from "fp-ts/lib/TaskEither";
 import { context } from "../../__mocks__/durable-functions";
 import { aValidService } from "../../__mocks__/mocks";
-import { ServicesExport, UpdateWebviewServicesMetadata } from "../handler";
+import {
+  ServicesExportCompact,
+  ServicesExportExtended,
+  UpdateWebviewServicesMetadata
+} from "../handler";
 import { some, none } from "fp-ts/lib/Option";
 import { ServiceScopeEnum } from "@pagopa/io-functions-commons/dist/generated/definitions/ServiceScope";
 import { CosmosErrors } from "@pagopa/io-functions-commons/dist/src/utils/cosmosdb_model";
@@ -15,6 +19,13 @@ const mockServiceModel = ({
 } as unknown) as ServiceModel;
 
 describe("UpdateWebviewServicesMetadata", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+  afterEach(() => {
+    context.bindings = {};
+  });
+
   it("should returns bindings for visible services", async () => {
     mockListLastVersionServices.mockImplementationOnce(() => {
       return taskEither.of(
@@ -44,7 +55,7 @@ describe("UpdateWebviewServicesMetadata", () => {
             q: 1
           }
         ]
-      } as ServicesExport
+      } as ServicesExportCompact
     });
     expect(context).toHaveProperty("bindings.visibleServicesExtended", {
       [aValidService.organizationFiscalCode]: {
@@ -66,7 +77,7 @@ describe("UpdateWebviewServicesMetadata", () => {
             q: 1
           }
         ]
-      } as ServicesExport
+      } as ServicesExportExtended
     });
   });
 
@@ -99,7 +110,7 @@ describe("UpdateWebviewServicesMetadata", () => {
             q: 0
           }
         ]
-      } as ServicesExport
+      } as ServicesExportCompact
     });
     expect(context).toHaveProperty("bindings.visibleServicesExtended", {
       [aValidService.organizationFiscalCode]: {
@@ -114,7 +125,7 @@ describe("UpdateWebviewServicesMetadata", () => {
             q: 0
           }
         ]
-      } as ServicesExport
+      } as ServicesExportExtended
     });
   });
 
@@ -128,12 +139,44 @@ describe("UpdateWebviewServicesMetadata", () => {
   });
 
   it("should thrown a CosmosErrors", async () => {
+    const expectedCosmosError = {
+      kind: "COSMOS_ERROR_RESPONSE"
+    } as CosmosErrors;
     mockListLastVersionServices.mockImplementationOnce(() => {
-      return fromLeft({} as CosmosErrors);
+      return fromLeft(expectedCosmosError);
     });
     const result = UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
     await expect(result).rejects.toThrowError(
-      "Error reading or processing Services"
+      "Error reading services from Cosmos or decoding output bindings"
     );
+    expect(context.log.error).toBeCalledWith(
+      `UpdateWebviewServiceMetadata|ERROR|CosmosError: ${expectedCosmosError.kind}`
+    );
+    expect(context).not.toHaveProperty("bindings.visibleServicesCompact");
+    expect(context).not.toHaveProperty("bindings.visibleServicesExtended");
+  });
+
+  it("should return an error if the bindings decoding fails", async () => {
+    mockListLastVersionServices.mockImplementationOnce(() => {
+      return taskEither.of(
+        some([
+          {
+            ...aValidService,
+            serviceMetadata: {
+              ...aValidService.serviceMetadata,
+              scope: ServiceScopeEnum.LOCAL,
+              description: undefined
+            }
+          }
+        ])
+      );
+    });
+    const result = UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
+    await expect(result).rejects.toThrowError(
+      "Error reading services from Cosmos or decoding output bindings"
+    );
+    expect(context.log.error).toBeCalledWith(expect.any(String));
+    expect(context).not.toHaveProperty("bindings.visibleServicesCompact");
+    expect(context).not.toHaveProperty("bindings.visibleServicesExtended");
   });
 });

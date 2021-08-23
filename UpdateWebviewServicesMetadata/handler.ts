@@ -5,41 +5,67 @@ import {
   ServiceModel,
   ValidService
 } from "@pagopa/io-functions-commons/dist/src/models/service";
+import { errorsToReadableMessages } from "@pagopa/ts-commons/lib/reporters";
 import {
   NonEmptyString,
   OrganizationFiscalCode
 } from "@pagopa/ts-commons/lib/strings";
 import { enumType } from "@pagopa/ts-commons/lib/types";
+import { fromEither } from "fp-ts/lib/TaskEither";
 import * as t from "io-ts";
 
-const ServiceExportR = t.interface({
+const ServiceExportCompact = t.interface({
   i: NonEmptyString,
-  n: NonEmptyString
+  n: NonEmptyString,
+  q: t.number
 });
-type ServiceExportR = t.TypeOf<typeof ServiceExportR>;
+type ServiceExportCompact = t.TypeOf<typeof ServiceExportCompact>;
 
-const ServiceExportO = t.partial({
-  d: NonEmptyString,
-  q: t.number,
-  sc: enumType<ServiceScopeEnum>(ServiceScopeEnum, "ServiceScope")
-});
-type ServiceExportO = t.TypeOf<typeof ServiceExportO>;
+const ServiceExportExtended = t.intersection([
+  t.interface({
+    d: NonEmptyString,
+    sc: enumType<ServiceScopeEnum>(ServiceScopeEnum, "ServiceScope")
+  }),
+  ServiceExportCompact
+]);
+type ServiceExportExtended = t.TypeOf<typeof ServiceExportExtended>;
 
-export const ServiceExport = t.intersection([ServiceExportR, ServiceExportO]);
+export const ServiceExport = t.union([
+  ServiceExportCompact,
+  ServiceExportExtended
+]);
 export type ServiceExport = t.TypeOf<typeof ServiceExport>;
 
-export const ServicesExport = t.interface({
+export const ServicesExportCompact = t.interface({
   fc: OrganizationFiscalCode,
   o: NonEmptyString,
-  s: t.readonlyArray(ServiceExport)
+  s: t.readonlyArray(ServiceExportCompact)
 });
+export type ServicesExportCompact = t.TypeOf<typeof ServicesExportCompact>;
 
-export type ServicesExport = t.TypeOf<typeof ServicesExport>;
+export const ServicesExportExtended = t.interface({
+  fc: OrganizationFiscalCode,
+  o: NonEmptyString,
+  s: t.readonlyArray(ServiceExportExtended)
+});
+export type ServicesExportExtended = t.TypeOf<typeof ServicesExportExtended>;
 
 enum ExportModeEnum {
   EXTENDED = "EXTENDED",
   COMPACT = "COMPACT"
 }
+
+const ServicesOutputBindings = t.interface({
+  visibleServicesCompact: t.record(
+    OrganizationFiscalCode,
+    ServicesExportCompact
+  ),
+  visibleServicesExtended: t.record(
+    OrganizationFiscalCode,
+    ServicesExportExtended
+  )
+});
+type ServicesOutputBindings = t.TypeOf<typeof ServicesOutputBindings>;
 
 const getServiceMapper = (
   mode: ExportModeEnum,
@@ -76,7 +102,7 @@ const getServiceMapper = (
 const groupServiceByOrganizationFiscalCode = (
   services: ReadonlyArray<RetrievedService>,
   serviceMapper: (service: RetrievedService) => ServiceExport
-): Record<string, ServicesExport> =>
+): Record<string, ServicesExportCompact | ServicesExportExtended> =>
   services.reduce((prev, _) => {
     if (prev[_.organizationFiscalCode]) {
       return {
@@ -96,7 +122,7 @@ const groupServiceByOrganizationFiscalCode = (
       }
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }, {} as Record<string, ServicesExport>);
+  }, {} as Record<string, ServicesExportCompact | ServicesExportExtended>);
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const UpdateWebviewServicesMetadata = (
@@ -105,6 +131,7 @@ export const UpdateWebviewServicesMetadata = (
 ) => async (context: Context): Promise<void> =>
   serviceModel
     .listLastVersionServices()
+    .mapLeft(comsosError => new Error(`CosmosError: ${comsosError.kind}`))
     .map(maybeServices => {
       if (maybeServices.isNone()) {
         return [];
@@ -128,25 +155,34 @@ export const UpdateWebviewServicesMetadata = (
           }
         )
     )
-    .map(_ => ({
-      compact: groupServiceByOrganizationFiscalCode(
-        _.compact,
-        getServiceMapper(ExportModeEnum.COMPACT, serviceIdExclusionList)
-      ),
-      extended: groupServiceByOrganizationFiscalCode(
-        _.extended,
-        getServiceMapper(ExportModeEnum.EXTENDED, serviceIdExclusionList)
+    .chain(_ =>
+      fromEither(
+        ServicesOutputBindings.decode({
+          visibleServicesCompact: groupServiceByOrganizationFiscalCode(
+            _.compact,
+            getServiceMapper(ExportModeEnum.COMPACT, serviceIdExclusionList)
+          ),
+          visibleServicesExtended: groupServiceByOrganizationFiscalCode(
+            _.extended,
+            getServiceMapper(ExportModeEnum.EXTENDED, serviceIdExclusionList)
+          )
+        }).mapLeft(err => new Error(errorsToReadableMessages(err).join("/")))
       )
-    }))
+    )
     .fold(
-      _ => {
-        throw new Error("Error reading or processing Services");
+      error => {
+        context.log.error(
+          `UpdateWebviewServiceMetadata|ERROR|${error.message}`
+        );
+        throw new Error(
+          "Error reading services from Cosmos or decoding output bindings"
+        );
       },
       _ => {
         // eslint-disable-next-line functional/immutable-data
-        context.bindings.visibleServicesCompact = _.compact;
+        context.bindings.visibleServicesCompact = _.visibleServicesCompact;
         // eslint-disable-next-line functional/immutable-data
-        context.bindings.visibleServicesExtended = _.extended;
+        context.bindings.visibleServicesExtended = _.visibleServicesExtended;
       }
     )
     .run();
