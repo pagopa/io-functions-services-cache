@@ -118,7 +118,7 @@ describe("UpdateWebviewServicesMetadata", () => {
     });
   });
 
-  it("should return an empty array", async () => {
+  it("should return an empty object if no result was found in CosmosDB", async () => {
     mockListLastVersionServices.mockImplementationOnce(() => {
       return taskEither.of(none);
     });
@@ -131,9 +131,9 @@ describe("UpdateWebviewServicesMetadata", () => {
     mockListLastVersionServices.mockImplementationOnce(() => {
       return fromLeft({} as CosmosErrors);
     });
-
-    await expect(
-      UpdateWebviewServicesMetadata(mockServiceModel, [])(context)
-    ).rejects.toThrowError("Error reading or processing Services");
+    const result = UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
+    await expect(result).rejects.toThrowError(
+      "Error reading or processing Services"
+    );
   });
 });
