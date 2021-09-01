@@ -6,14 +6,15 @@
  */
 
 import * as t from "io-ts";
-import { ValidationError } from "io-ts";
 import { readableReport } from "@pagopa/ts-commons/lib/reporters";
 import { NonEmptyString } from "@pagopa/ts-commons/lib/strings";
 import {
   IntegerFromString,
   NonNegativeInteger
 } from "@pagopa/ts-commons/lib/numbers";
-import { fromNullable } from "fp-ts/lib/Option";
+import * as O from "fp-ts/lib/Option";
+import * as E from "fp-ts/lib/Either";
+import { pipe } from "fp-ts/lib/function";
 
 const DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE = 500;
 
@@ -41,12 +42,15 @@ export const IConfig = t.interface({
 // No need to re-evaluate this object for each call
 const errorOrConfig: t.Validation<IConfig> = IConfig.decode({
   ...process.env,
-  MaxServicesOrchestratorSize: IntegerFromString.decode(
-    process.env.MAX_SERVICES_ORCHESTRATOR_SIZE
-  ).getOrElse(DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE),
-  SERVICEID_EXCLUSION_LIST: fromNullable(process.env.SERVICEID_EXCLUSION_LIST)
-    .map(_ => _.split(";"))
-    .getOrElse([]),
+  MaxServicesOrchestratorSize: pipe(
+    IntegerFromString.decode(process.env.MAX_SERVICES_ORCHESTRATOR_SIZE),
+    E.getOrElse(() => DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE)
+  ),
+  SERVICEID_EXCLUSION_LIST: pipe(
+    O.fromNullable(process.env.SERVICEID_EXCLUSION_LIST),
+    O.map(_ => _.split(";")),
+    O.getOrElse(() => [] as ReadonlyArray<string>)
+  ),
   isProduction: process.env.NODE_ENV === "production"
 });
 
@@ -66,6 +70,11 @@ export const getConfig = (): t.Validation<IConfig> => errorOrConfig;
  * @throws validation errors found while parsing the application configuration
  */
 export const getConfigOrThrow = (): IConfig =>
+  E.getOrElse<t.Errors, IConfig>(error => {
+    throw new Error(`Invalid configuration: ${readableReport(error)}`);
+  })(errorOrConfig);
+/*
   errorOrConfig.getOrElseL((errors: ReadonlyArray<ValidationError>) => {
     throw new Error(`Invalid configuration: ${readableReport(errors)}`);
   });
+*/

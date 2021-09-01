@@ -11,8 +11,12 @@ import {
   OrganizationFiscalCode
 } from "@pagopa/ts-commons/lib/strings";
 import { enumType } from "@pagopa/ts-commons/lib/types";
-import { fromEither } from "fp-ts/lib/TaskEither";
+import { pipe } from "fp-ts/lib/function";
 import * as t from "io-ts";
+import * as E from "fp-ts/lib/Either";
+import * as TE from "fp-ts/lib/TaskEither";
+import * as O from "fp-ts/lib/Option";
+import * as T from "fp-ts/lib/Task";
 
 const ServiceExportCompact = t.interface({
   i: NonEmptyString,
@@ -67,6 +71,11 @@ const ServicesOutputBindings = t.interface({
 });
 type ServicesOutputBindings = t.TypeOf<typeof ServicesOutputBindings>;
 
+/**
+ * Create a service mapper helper to minimize the Service object size.
+ * This object will be used to build the webview in IO Website.
+ *
+ */
 const getServiceMapper = (
   mode: ExportModeEnum,
   serviceIdExclusionList: ReadonlyArray<NonEmptyString>
@@ -79,9 +88,12 @@ const getServiceMapper = (
       q:
         serviceIdExclusionList.indexOf(service.serviceId) > -1
           ? 1
-          : ValidService.decode(service).fold(
-              _ => 0, // quality ko
-              _ => 1 // quality ok
+          : pipe(
+              ValidService.decode(service),
+              E.fold(
+                _ => 0, // quality ko
+                _ => 1 // quality ok
+              )
             ),
       sc: service.serviceMetadata?.scope || ServiceScopeEnum.NATIONAL
     };
@@ -92,13 +104,21 @@ const getServiceMapper = (
     q:
       serviceIdExclusionList.indexOf(service.serviceId) > -1
         ? 1
-        : ValidService.decode(service).fold(
-            _ => 0, // quality ko
-            _ => 1 // quality ok
+        : pipe(
+            ValidService.decode(service),
+            E.fold(
+              _ => 0, // quality ko
+              _ => 1 // quality ok
+            )
           )
   };
 };
 
+/**
+ * Group all services by Organization fiscal code and remap services
+ * with a provided service mapper helper.
+ *
+ */
 const groupServiceByOrganizationFiscalCode = (
   services: ReadonlyArray<RetrievedService>,
   serviceMapper: (service: RetrievedService) => ServiceExport
@@ -128,17 +148,17 @@ const groupServiceByOrganizationFiscalCode = (
 export const UpdateWebviewServicesMetadata = (
   serviceModel: ServiceModel,
   serviceIdExclusionList: ReadonlyArray<NonEmptyString>
-) => async (context: Context): Promise<void> =>
-  serviceModel
-    .listLastVersionServices()
-    .mapLeft(comsosError => new Error(`CosmosError: ${comsosError.kind}`))
-    .map(maybeServices => {
-      if (maybeServices.isNone()) {
+) => async (context: Context): Promise<unknown> =>
+  pipe(
+    serviceModel.listLastVersionServices(),
+    TE.mapLeft(comsosError => new Error(`CosmosError: ${comsosError.kind}`)),
+    TE.map(maybeServices => {
+      if (O.isNone(maybeServices)) {
         return [];
       }
       return maybeServices.value;
-    })
-    .map(services =>
+    }),
+    TE.map(services =>
       services
         .filter(service => service.isVisible)
         .reduce(
@@ -154,9 +174,9 @@ export const UpdateWebviewServicesMetadata = (
             extended: [] as ReadonlyArray<RetrievedService>
           }
         )
-    )
-    .chain(_ =>
-      fromEither(
+    ),
+    TE.chain(_ =>
+      pipe(
         ServicesOutputBindings.decode({
           visibleServicesCompact: groupServiceByOrganizationFiscalCode(
             _.compact,
@@ -166,10 +186,12 @@ export const UpdateWebviewServicesMetadata = (
             _.extended,
             getServiceMapper(ExportModeEnum.EXTENDED, serviceIdExclusionList)
           )
-        }).mapLeft(err => new Error(errorsToReadableMessages(err).join("/")))
+        }),
+        E.mapLeft(err => new Error(errorsToReadableMessages(err).join("/"))),
+        TE.fromEither
       )
-    )
-    .fold(
+    ),
+    TE.fold<Error, ServicesOutputBindings, undefined | never>(
       error => {
         context.log.error(
           `UpdateWebviewServiceMetadata|ERROR|${error.message}`
@@ -183,6 +205,7 @@ export const UpdateWebviewServicesMetadata = (
         context.bindings.visibleServicesCompact = _.visibleServicesCompact;
         // eslint-disable-next-line functional/immutable-data
         context.bindings.visibleServicesExtended = _.visibleServicesExtended;
+        return T.of(void 0);
       }
     )
-    .run();
+  )();

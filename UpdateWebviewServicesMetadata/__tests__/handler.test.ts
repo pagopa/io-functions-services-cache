@@ -1,5 +1,4 @@
 import { ServiceModel } from "@pagopa/io-functions-commons/dist/src/models/service";
-import { taskEither } from "fp-ts/lib/TaskEither";
 import { context } from "../../__mocks__/durable-functions";
 import { aValidService } from "../../__mocks__/mocks";
 import {
@@ -10,7 +9,7 @@ import {
 import { some, none } from "fp-ts/lib/Option";
 import { ServiceScopeEnum } from "@pagopa/io-functions-commons/dist/generated/definitions/ServiceScope";
 import { CosmosErrors } from "@pagopa/io-functions-commons/dist/src/utils/cosmosdb_model";
-import { fromLeft } from "fp-ts/lib/TaskEither";
+import * as TE from "fp-ts/lib/TaskEither";
 
 const mockListLastVersionServices = jest.fn();
 
@@ -28,7 +27,7 @@ describe("UpdateWebviewServicesMetadata", () => {
 
   it("should returns bindings for visible services", async () => {
     mockListLastVersionServices.mockImplementationOnce(() => {
-      return taskEither.of(
+      return TE.of(
         some([
           aValidService,
           {
@@ -83,7 +82,7 @@ describe("UpdateWebviewServicesMetadata", () => {
 
   it("should returns services with quality equal to zero when services aren't complete", async () => {
     mockListLastVersionServices.mockImplementationOnce(() => {
-      return taskEither.of(
+      return TE.of(
         some([
           {
             ...aValidService,
@@ -131,7 +130,7 @@ describe("UpdateWebviewServicesMetadata", () => {
 
   it("should return an empty object if no result was found in CosmosDB", async () => {
     mockListLastVersionServices.mockImplementationOnce(() => {
-      return taskEither.of(none);
+      return TE.of(none);
     });
     await UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
     expect(context).toHaveProperty("bindings.visibleServicesCompact", {});
@@ -143,7 +142,7 @@ describe("UpdateWebviewServicesMetadata", () => {
       kind: "COSMOS_ERROR_RESPONSE"
     } as CosmosErrors;
     mockListLastVersionServices.mockImplementationOnce(() => {
-      return fromLeft(expectedCosmosError);
+      return TE.left(expectedCosmosError);
     });
     const result = UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
     await expect(result).rejects.toThrowError(
@@ -158,7 +157,7 @@ describe("UpdateWebviewServicesMetadata", () => {
 
   it("should return an error if the bindings decoding fails", async () => {
     mockListLastVersionServices.mockImplementationOnce(() => {
-      return taskEither.of(
+      return TE.of(
         some([
           {
             ...aValidService,

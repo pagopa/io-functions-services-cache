@@ -26,7 +26,7 @@ const UpdateVisibleServicesCacheOrchestrator = df.orchestrator(function*(
     );
     return;
   }
-  const visibleServices = errorOrVisibleServices.value;
+  const visibleServices = errorOrVisibleServices.right;
 
   for (const visibleServiceId of Object.keys(visibleServices)) {
     yield context.df.callActivity(
