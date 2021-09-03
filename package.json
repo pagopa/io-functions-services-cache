@@ -49,8 +49,8 @@
   },
   "dependencies": {
     "@azure/cosmos": "^3.11.5",
-    "@pagopa/io-functions-commons": "../io-functions-commons",
-    "@pagopa/ts-commons": "10.0.0",
+    "@pagopa/io-functions-commons": "^21.2.0",
+    "@pagopa/ts-commons": "^10.0.1",
     "azure-storage": "^2.10.3",
     "durable-functions": "^1.4.4",
     "express": "^4.15.3",
