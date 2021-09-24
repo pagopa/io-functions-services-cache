@@ -151,7 +151,7 @@ export const UpdateWebviewServicesMetadata = (
 ) => async (context: Context): Promise<unknown> =>
   pipe(
     serviceModel.listLastVersionServices(),
-    TE.mapLeft(comsosError => new Error(`CosmosError: ${comsosError.kind}`)),
+    TE.mapLeft(cosmosError => new Error(`CosmosError: ${cosmosError.kind}`)),
     TE.map(maybeServices => {
       if (O.isNone(maybeServices)) {
         return [];
