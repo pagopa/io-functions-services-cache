@@ -8,13 +8,14 @@
 import * as t from "io-ts";
 import { readableReport } from "@pagopa/ts-commons/lib/reporters";
 import { NonEmptyString } from "@pagopa/ts-commons/lib/strings";
+import { CommaSeparatedListOf } from "@pagopa/ts-commons/lib/comma-separated-list";
 import {
   IntegerFromString,
   NonNegativeInteger
 } from "@pagopa/ts-commons/lib/numbers";
-import * as O from "fp-ts/lib/Option";
 import * as E from "fp-ts/lib/Either";
 import { pipe } from "fp-ts/lib/function";
+import { withDefault } from "@pagopa/ts-commons/lib/types";
 
 const DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE = 500;
 
@@ -32,7 +33,10 @@ export const IConfig = t.interface({
 
   MaxServicesOrchestratorSize: NonNegativeInteger,
 
-  SERVICEID_EXCLUSION_LIST: t.readonlyArray(NonEmptyString),
+  SERVICEID_EXCLUSION_LIST: withDefault(
+    CommaSeparatedListOf(NonEmptyString),
+    []
+  ),
 
   StorageConnection: NonEmptyString,
 
@@ -45,11 +49,6 @@ const errorOrConfig: t.Validation<IConfig> = IConfig.decode({
   MaxServicesOrchestratorSize: pipe(
     IntegerFromString.decode(process.env.MAX_SERVICES_ORCHESTRATOR_SIZE),
     E.getOrElse(() => DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE)
-  ),
-  SERVICEID_EXCLUSION_LIST: pipe(
-    O.fromNullable(process.env.SERVICEID_EXCLUSION_LIST),
-    O.map(_ => _.split(";")),
-    O.getOrElse(() => [] as ReadonlyArray<string>)
   ),
   isProduction: process.env.NODE_ENV === "production"
 });
