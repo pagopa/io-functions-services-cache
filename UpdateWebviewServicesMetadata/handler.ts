@@ -19,14 +19,20 @@ import * as O from "fp-ts/lib/Option";
 import * as T from "fp-ts/lib/Task";
 
 const ServiceExportCompact = t.interface({
+  // Service Id
   i: NonEmptyString,
+  // Service name
   n: NonEmptyString,
+  // Quality flag, can be 1 or 0.
+  // 0. required quality level not reached
+  // 1. quality level reached
   q: t.number
 });
 type ServiceExportCompact = t.TypeOf<typeof ServiceExportCompact>;
 
 const ServiceExportExtended = t.intersection([
   t.interface({
+    // Service description
     d: NonEmptyString,
     sc: enumType<ServiceScopeEnum>(ServiceScopeEnum, "ServiceScope")
   }),
@@ -42,6 +48,7 @@ export type ServiceExport = t.TypeOf<typeof ServiceExport>;
 
 export const ServicesExportCompact = t.interface({
   fc: OrganizationFiscalCode,
+  // Organization Name
   o: NonEmptyString,
   s: t.readonlyArray(ServiceExportCompact)
 });
@@ -49,6 +56,7 @@ export type ServicesExportCompact = t.TypeOf<typeof ServicesExportCompact>;
 
 export const ServicesExportExtended = t.interface({
   fc: OrganizationFiscalCode,
+  // Organization Name
   o: NonEmptyString,
   s: t.readonlyArray(ServiceExportExtended)
 });
