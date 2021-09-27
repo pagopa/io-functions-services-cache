@@ -22,7 +22,7 @@ const UpdateVisibleServiceCacheActivity = async (
     );
     return;
   }
-  const visibleService = errorOrVisibleService.value;
+  const visibleService = errorOrVisibleService.right;
 
   context.log.info(
     "UpdateVisibleServiceCacheActivity|SERVICE_ID=",

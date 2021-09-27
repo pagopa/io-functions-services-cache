@@ -13,7 +13,6 @@
 import { Context } from "@azure/functions";
 
 import { isLeft, toError } from "fp-ts/lib/Either";
-import { StrMap } from "fp-ts/lib/StrMap";
 import { VisibleService } from "@pagopa/io-functions-commons/dist/src/models/visible_service";
 
 import * as df from "durable-functions";
@@ -21,8 +20,10 @@ import * as t from "io-ts";
 import { NonEmptyString } from "@pagopa/ts-commons/lib/strings";
 import { NonNegativeInteger } from "@pagopa/ts-commons/lib/numbers";
 import { ServiceScope } from "@pagopa/io-functions-commons/dist/generated/definitions/ServiceScope";
-import { array } from "fp-ts/lib/Array";
-import { taskEither, tryCatch } from "fp-ts/lib/TaskEither";
+import * as TE from "fp-ts/lib/TaskEither";
+import * as M from "fp-ts/lib/Map";
+import { pipe } from "fp-ts/lib/function";
+import * as S from "fp-ts/lib/string";
 import { getConfigOrThrow } from "../utils/config";
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -54,41 +55,48 @@ const UpdateVisibleServiceCache = async (context: Context): Promise<void> => {
     return;
   }
 
-  const visibleServiceJson = errorOrVisibleServices.value;
-  const visibleServices = new StrMap(visibleServiceJson);
+  const visibleServiceJson = errorOrVisibleServices.right;
+  const visibleServices = new Map(Object.entries(visibleServiceJson));
 
-  const visibleServicesTuples = visibleServices.mapWithKey((_, v) => ({
+  const visibleServicesTuples = M.mapWithIndex<
+    string,
+    VisibleService,
+    VisibleServiceCache
+  >((_, v) => ({
     scope: v.serviceMetadata ? v.serviceMetadata.scope : undefined,
     // eslint-disable-next-line @typescript-eslint/naming-convention
     service_id: v.serviceId,
     version: v.version
-  }));
+  }))(visibleServices);
 
   // store visible services in the blob
   // eslint-disable-next-line functional/immutable-data
   context.bindings.visibleServicesCacheBlob = {
-    items: visibleServicesTuples.reduce(
+    items: M.reduce(S.Ord)(
       [] as ReadonlyArray<VisibleServiceCache>,
-      (p, c) => [...p, c]
-    )
+      (p, c: VisibleServiceCache) => [...p, c]
+    )(visibleServicesTuples)
   };
 
-  const { left: NATIONAL, right: LOCAL } = visibleServices.partition(
-    s => s.serviceMetadata !== undefined && s.serviceMetadata.scope === "LOCAL"
-  );
+  const { left: NATIONAL, right: LOCAL } = M.partition(
+    (s: VisibleService) =>
+      s.serviceMetadata !== undefined && s.serviceMetadata.scope === "LOCAL"
+  )(visibleServices);
 
   // store visible services partitioned by scope
   // eslint-disable-next-line functional/immutable-data
   context.bindings.visibleServicesByScopeCacheBlob = {
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    LOCAL: LOCAL.map(_ => _.serviceId).reduce(
-      [] as ReadonlyArray<NonEmptyString>,
-      (p, c) => [...p, c]
+    LOCAL: pipe(
+      LOCAL,
+      M.map(_ => _.serviceId),
+      M.reduce(S.Ord)([] as ReadonlyArray<NonEmptyString>, (p, c) => [...p, c])
     ),
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    NATIONAL: NATIONAL.map(_ => _.serviceId).reduce(
-      [] as ReadonlyArray<NonEmptyString>,
-      (p, c) => [...p, c]
+    NATIONAL: pipe(
+      NATIONAL,
+      M.map(_ => _.serviceId),
+      M.reduce(S.Ord)([] as ReadonlyArray<NonEmptyString>, (p, c) => [...p, c])
     )
   };
 
@@ -117,10 +125,10 @@ const UpdateVisibleServiceCache = async (context: Context): Promise<void> => {
     },
     [{}] as ReadonlyArray<VisibleServices>
   );
-  await array
-    .sequence(taskEither)(
+  await pipe(
+    TE.sequenceArray(
       splittedVisibleServices.map(_ =>
-        tryCatch(
+        TE.tryCatch(
           () =>
             df
               .getClient(context)
@@ -128,13 +136,13 @@ const UpdateVisibleServiceCache = async (context: Context): Promise<void> => {
           toError
         )
       )
-    )
-    .mapLeft(_ => {
+    ),
+    TE.mapLeft(_ => {
       context.log.error(
         `UpdateVisibleServiceCache|ERROR|An error occurred starting the orchestrators ${_}`
       );
     })
-    .run();
+  )();
 };
 
 export { UpdateVisibleServiceCache as index };

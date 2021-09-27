@@ -6,13 +6,16 @@
  */
 
 import * as t from "io-ts";
-import { ValidationError } from "io-ts";
 import { readableReport } from "@pagopa/ts-commons/lib/reporters";
 import { NonEmptyString } from "@pagopa/ts-commons/lib/strings";
+import { CommaSeparatedListOf } from "@pagopa/ts-commons/lib/comma-separated-list";
 import {
   IntegerFromString,
   NonNegativeInteger
 } from "@pagopa/ts-commons/lib/numbers";
+import * as E from "fp-ts/lib/Either";
+import { pipe } from "fp-ts/lib/function";
+import { withDefault } from "@pagopa/ts-commons/lib/types";
 
 const DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE = 500;
 
@@ -24,7 +27,16 @@ export const IConfig = t.interface({
   AssetsStorageConnection: NonEmptyString,
   AzureWebJobsStorage: NonEmptyString,
 
+  COSMOSDB_KEY: NonEmptyString,
+  COSMOSDB_NAME: NonEmptyString,
+  COSMOSDB_URI: NonEmptyString,
+
   MaxServicesOrchestratorSize: NonNegativeInteger,
+
+  SERVICEID_EXCLUSION_LIST: withDefault(
+    CommaSeparatedListOf(NonEmptyString),
+    []
+  ),
 
   StorageConnection: NonEmptyString,
 
@@ -34,9 +46,10 @@ export const IConfig = t.interface({
 // No need to re-evaluate this object for each call
 const errorOrConfig: t.Validation<IConfig> = IConfig.decode({
   ...process.env,
-  MaxServicesOrchestratorSize: IntegerFromString.decode(
-    process.env.MAX_SERVICES_ORCHESTRATOR_SIZE
-  ).getOrElse(DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE),
+  MaxServicesOrchestratorSize: pipe(
+    IntegerFromString.decode(process.env.MAX_SERVICES_ORCHESTRATOR_SIZE),
+    E.getOrElse(() => DEFAULT_MAX_SERVICES_ORCHESTRATOR_SIZE)
+  ),
   isProduction: process.env.NODE_ENV === "production"
 });
 
@@ -56,6 +69,11 @@ export const getConfig = (): t.Validation<IConfig> => errorOrConfig;
  * @throws validation errors found while parsing the application configuration
  */
 export const getConfigOrThrow = (): IConfig =>
+  E.getOrElse<t.Errors, IConfig>(error => {
+    throw new Error(`Invalid configuration: ${readableReport(error)}`);
+  })(errorOrConfig);
+/*
   errorOrConfig.getOrElseL((errors: ReadonlyArray<ValidationError>) => {
     throw new Error(`Invalid configuration: ${readableReport(errors)}`);
   });
+*/

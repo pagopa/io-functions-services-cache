@@ -6,6 +6,8 @@ import {
   ResponseErrorInternal,
   ResponseSuccessJson
 } from "@pagopa/ts-commons/lib/responses";
+import * as TE from "fp-ts/lib/TaskEither";
+import { pipe } from "fp-ts/lib/function";
 import * as packageJson from "../package.json";
 import { checkApplicationHealth, HealthCheck } from "../utils/healthcheck";
 
@@ -24,16 +26,17 @@ export const InfoHandler = (
 ): InfoHandler => (): Promise<
   IResponseSuccessJson<IInfo> | IResponseErrorInternal
 > =>
-  healthCheck
-    .fold<IResponseSuccessJson<IInfo> | IResponseErrorInternal>(
-      problems => ResponseErrorInternal(problems.join("\n\n")),
-      _ =>
-        ResponseSuccessJson({
-          name: packageJson.name,
-          version: packageJson.version
-        })
-    )
-    .run();
+  pipe(
+    healthCheck,
+    TE.mapLeft(problems => ResponseErrorInternal(problems.join("\n\n"))),
+    TE.map(_ =>
+      ResponseSuccessJson({
+        name: packageJson.name,
+        version: packageJson.version
+      })
+    ),
+    TE.toUnion
+  )();
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const Info = (): express.RequestHandler => {
