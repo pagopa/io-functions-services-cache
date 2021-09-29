@@ -15,6 +15,7 @@
       }
     }
   },
+  "functionTimeout": "00:01:00",
   "extensions": {
     "http": {
       "routePrefix": ""
