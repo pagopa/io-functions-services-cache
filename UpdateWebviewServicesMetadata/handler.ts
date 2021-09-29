@@ -32,9 +32,11 @@ type ServiceExportCompact = t.TypeOf<typeof ServiceExportCompact>;
 
 const ServiceExportExtended = t.intersection([
   t.interface({
-    // Service description
-    d: NonEmptyString,
     sc: enumType<ServiceScopeEnum>(ServiceScopeEnum, "ServiceScope")
+  }),
+  t.partial({
+    // Service description
+    d: NonEmptyString
   }),
   ServiceExportCompact
 ]);
@@ -156,10 +158,20 @@ const groupServiceByOrganizationFiscalCode = (
 export const UpdateWebviewServicesMetadata = (
   serviceModel: ServiceModel,
   serviceIdExclusionList: ReadonlyArray<NonEmptyString>
-) => async (context: Context): Promise<unknown> =>
-  pipe(
+) => async (context: Context): Promise<unknown> => {
+  context.log.info("Start");
+  return pipe(
     serviceModel.listLastVersionServices(),
-    TE.mapLeft(cosmosError => new Error(`CosmosError: ${cosmosError.kind}`)),
+    TE.mapLeft(
+      cosmosError =>
+        new Error(
+          `${cosmosError.kind}|${
+            cosmosError.kind !== "COSMOS_EMPTY_RESPONSE"
+              ? cosmosError.error
+              : ""
+          }`
+        )
+    ),
     TE.map(maybeServices => {
       if (O.isNone(maybeServices)) {
         return [];
@@ -217,3 +229,4 @@ export const UpdateWebviewServicesMetadata = (
       }
     )
   )();
+};
