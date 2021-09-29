@@ -158,9 +158,8 @@ const groupServiceByOrganizationFiscalCode = (
 export const UpdateWebviewServicesMetadata = (
   serviceModel: ServiceModel,
   serviceIdExclusionList: ReadonlyArray<NonEmptyString>
-) => async (context: Context): Promise<unknown> => {
-  context.log.info("Start");
-  return pipe(
+) => async (context: Context): Promise<unknown> =>
+  pipe(
     serviceModel.listLastVersionServices(),
     TE.mapLeft(
       cosmosError =>
@@ -229,4 +228,3 @@ export const UpdateWebviewServicesMetadata = (
       }
     )
   )();
-};
