@@ -149,7 +149,9 @@ describe("UpdateWebviewServicesMetadata", () => {
       "Error reading services from Cosmos or decoding output bindings"
     );
     expect(context.log.error).toBeCalledWith(
-      `UpdateWebviewServiceMetadata|ERROR|CosmosError: ${expectedCosmosError.kind}`
+      expect.stringContaining(
+        `UpdateWebviewServiceMetadata|ERROR|${expectedCosmosError.kind}`
+      )
     );
     expect(context).not.toHaveProperty("bindings.visibleServicesCompact");
     expect(context).not.toHaveProperty("bindings.visibleServicesExtended");
@@ -164,7 +166,7 @@ describe("UpdateWebviewServicesMetadata", () => {
             serviceMetadata: {
               ...aValidService.serviceMetadata,
               scope: ServiceScopeEnum.LOCAL,
-              description: undefined
+              description: "" // Empty string description
             }
           }
         ])
@@ -177,5 +179,28 @@ describe("UpdateWebviewServicesMetadata", () => {
     expect(context.log.error).toBeCalledWith(expect.any(String));
     expect(context).not.toHaveProperty("bindings.visibleServicesCompact");
     expect(context).not.toHaveProperty("bindings.visibleServicesExtended");
+  });
+
+  it("should success if some service has undefined description", async () => {
+    mockListLastVersionServices.mockImplementationOnce(() => {
+      return TE.of(
+        some([
+          {
+            ...aValidService,
+            serviceMetadata: {
+              ...aValidService.serviceMetadata,
+              scope: ServiceScopeEnum.LOCAL,
+              description: undefined
+            }
+          }
+        ])
+      );
+    });
+    const result = await UpdateWebviewServicesMetadata(
+      mockServiceModel,
+      []
+    )(context);
+    expect(context).toHaveProperty("bindings.visibleServicesCompact");
+    expect(context).toHaveProperty("bindings.visibleServicesExtended");
   });
 });
