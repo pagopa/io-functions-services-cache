@@ -32,9 +32,11 @@ type ServiceExportCompact = t.TypeOf<typeof ServiceExportCompact>;
 
 const ServiceExportExtended = t.intersection([
   t.interface({
-    // Service description
-    d: NonEmptyString,
     sc: enumType<ServiceScopeEnum>(ServiceScopeEnum, "ServiceScope")
+  }),
+  t.partial({
+    // Service description
+    d: NonEmptyString
   }),
   ServiceExportCompact
 ]);
@@ -159,7 +161,16 @@ export const UpdateWebviewServicesMetadata = (
 ) => async (context: Context): Promise<unknown> =>
   pipe(
     serviceModel.listLastVersionServices(),
-    TE.mapLeft(cosmosError => new Error(`CosmosError: ${cosmosError.kind}`)),
+    TE.mapLeft(
+      cosmosError =>
+        new Error(
+          `${cosmosError.kind}|${
+            cosmosError.kind !== "COSMOS_EMPTY_RESPONSE"
+              ? cosmosError.error
+              : ""
+          }`
+        )
+    ),
     TE.map(maybeServices => {
       if (O.isNone(maybeServices)) {
         return [];
