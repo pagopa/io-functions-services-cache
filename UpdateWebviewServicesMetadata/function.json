@@ -10,14 +10,14 @@
     {
       "name": "visibleServicesCompact",
       "type": "blob",
-      "path": "$web/services-webview/visible-services-compact.json",
+      "path": "services/services-webview/visible-services-compact.json",
       "connection": "AssetsStorageConnection",
       "direction": "out"
     },
     {
       "name": "visibleServicesExtended",
       "type": "blob",
-      "path": "$web/services-webview/visible-services-extended.json",
+      "path": "services/services-webview/visible-services-extended.json",
       "connection": "AssetsStorageConnection",
       "direction": "out"
     }
