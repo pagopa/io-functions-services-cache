@@ -221,9 +221,13 @@ export const UpdateWebviewServicesMetadata = (
       },
       _ => {
         // eslint-disable-next-line functional/immutable-data
-        context.bindings.visibleServicesCompact = _.visibleServicesCompact;
+        context.bindings.visibleServicesCompact = Object.values(
+          _.visibleServicesCompact
+        );
         // eslint-disable-next-line functional/immutable-data
-        context.bindings.visibleServicesExtended = _.visibleServicesExtended;
+        context.bindings.visibleServicesExtended = Object.values(
+          _.visibleServicesExtended
+        );
         return T.of(void 0);
       }
     )
