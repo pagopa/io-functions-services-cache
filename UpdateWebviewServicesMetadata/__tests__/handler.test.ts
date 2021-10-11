@@ -43,8 +43,8 @@ describe("UpdateWebviewServicesMetadata", () => {
 
     await UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
 
-    expect(context).toHaveProperty("bindings.visibleServicesCompact", {
-      [aValidService.organizationFiscalCode]: {
+    expect(context).toHaveProperty("bindings.visibleServicesCompact", [
+      {
         fc: aValidService.organizationFiscalCode,
         o: aValidService.organizationName,
         s: [
@@ -55,9 +55,9 @@ describe("UpdateWebviewServicesMetadata", () => {
           }
         ]
       } as ServicesExportCompact
-    });
-    expect(context).toHaveProperty("bindings.visibleServicesExtended", {
-      [aValidService.organizationFiscalCode]: {
+    ]);
+    expect(context).toHaveProperty("bindings.visibleServicesExtended", [
+      {
         fc: aValidService.organizationFiscalCode,
         o: aValidService.organizationName,
         s: [
@@ -77,7 +77,7 @@ describe("UpdateWebviewServicesMetadata", () => {
           }
         ]
       } as ServicesExportExtended
-    });
+    ]);
   });
 
   it("should returns services with quality equal to zero when services aren't complete", async () => {
@@ -98,8 +98,8 @@ describe("UpdateWebviewServicesMetadata", () => {
 
     await UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
 
-    expect(context).toHaveProperty("bindings.visibleServicesCompact", {
-      [aValidService.organizationFiscalCode]: {
+    expect(context).toHaveProperty("bindings.visibleServicesCompact", [
+      {
         fc: aValidService.organizationFiscalCode,
         o: aValidService.organizationName,
         s: [
@@ -110,9 +110,9 @@ describe("UpdateWebviewServicesMetadata", () => {
           }
         ]
       } as ServicesExportCompact
-    });
-    expect(context).toHaveProperty("bindings.visibleServicesExtended", {
-      [aValidService.organizationFiscalCode]: {
+    ]);
+    expect(context).toHaveProperty("bindings.visibleServicesExtended", [
+      {
         fc: aValidService.organizationFiscalCode,
         o: aValidService.organizationName,
         s: [
@@ -125,16 +125,16 @@ describe("UpdateWebviewServicesMetadata", () => {
           }
         ]
       } as ServicesExportExtended
-    });
+    ]);
   });
 
-  it("should return an empty object if no result was found in CosmosDB", async () => {
+  it("should return an empty array if no result was found in CosmosDB", async () => {
     mockListLastVersionServices.mockImplementationOnce(() => {
       return TE.of(none);
     });
     await UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
-    expect(context).toHaveProperty("bindings.visibleServicesCompact", {});
-    expect(context).toHaveProperty("bindings.visibleServicesExtended", {});
+    expect(context).toHaveProperty("bindings.visibleServicesCompact", []);
+    expect(context).toHaveProperty("bindings.visibleServicesExtended", []);
   });
 
   it("should thrown a CosmosErrors", async () => {
