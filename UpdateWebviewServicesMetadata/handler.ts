@@ -70,14 +70,8 @@ enum ExportModeEnum {
 }
 
 const ServicesOutputBindings = t.interface({
-  visibleServicesCompact: t.record(
-    OrganizationFiscalCode,
-    ServicesExportCompact
-  ),
-  visibleServicesExtended: t.record(
-    OrganizationFiscalCode,
-    ServicesExportExtended
-  )
+  visibleServicesCompact: t.readonlyArray(ServicesExportCompact),
+  visibleServicesExtended: t.readonlyArray(ServicesExportExtended)
 });
 type ServicesOutputBindings = t.TypeOf<typeof ServicesOutputBindings>;
 
@@ -197,13 +191,17 @@ export const UpdateWebviewServicesMetadata = (
     TE.chain(_ =>
       pipe(
         ServicesOutputBindings.decode({
-          visibleServicesCompact: groupServiceByOrganizationFiscalCode(
-            _.compact,
-            getServiceMapper(ExportModeEnum.COMPACT, serviceIdExclusionList)
+          visibleServicesCompact: Object.values(
+            groupServiceByOrganizationFiscalCode(
+              _.compact,
+              getServiceMapper(ExportModeEnum.COMPACT, serviceIdExclusionList)
+            )
           ),
-          visibleServicesExtended: groupServiceByOrganizationFiscalCode(
-            _.extended,
-            getServiceMapper(ExportModeEnum.EXTENDED, serviceIdExclusionList)
+          visibleServicesExtended: Object.values(
+            groupServiceByOrganizationFiscalCode(
+              _.extended,
+              getServiceMapper(ExportModeEnum.EXTENDED, serviceIdExclusionList)
+            )
           )
         }),
         E.mapLeft(err => new Error(errorsToReadableMessages(err).join("/"))),
@@ -221,13 +219,9 @@ export const UpdateWebviewServicesMetadata = (
       },
       _ => {
         // eslint-disable-next-line functional/immutable-data
-        context.bindings.visibleServicesCompact = Object.values(
-          _.visibleServicesCompact
-        );
+        context.bindings.visibleServicesCompact = _.visibleServicesCompact;
         // eslint-disable-next-line functional/immutable-data
-        context.bindings.visibleServicesExtended = Object.values(
-          _.visibleServicesExtended
-        );
+        context.bindings.visibleServicesExtended = _.visibleServicesExtended;
         return T.of(void 0);
       }
     )
