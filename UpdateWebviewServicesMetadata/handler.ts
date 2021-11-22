@@ -79,6 +79,7 @@ type ServicesOutputBindings = t.TypeOf<typeof ServicesOutputBindings>;
 
 /**
  * List all services, last version only
+ *
  * @param serviceModel Services Cosmosdb model
  * @returns a task containing either an Error or the list of services
  */
