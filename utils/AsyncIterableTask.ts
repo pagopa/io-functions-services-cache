@@ -1,13 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
-/* eslint-disable functional/prefer-readonly-type */
-/* eslint-disable @typescript-eslint/array-type */
-/* eslint-disable functional/immutable-data */
-/* eslint-disable functional/no-let */
-/* eslint-disable prefer-const */
-// -------------------------------------------------------------------------------------
-// model
-// -------------------------------------------------------------------------------------
-
 import * as T from "fp-ts/lib/Task";
 import * as TE from "fp-ts/lib/TaskEither";
 
@@ -29,7 +19,6 @@ export const fromAsyncIterable = <A>(
  * use the type constructor `F` to represent some computational context.
  *
  * @category Functor
- * @since 2.0.0
  */
 export const map: <A, B>(
   f: (a: A) => B
@@ -46,8 +35,8 @@ export const map: <A, B>(
 export const fold = <A>(fa: AsyncIterableTask<A>): T.Task<ReadonlyArray<A>> =>
   pipe(
     fa,
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    T.chain(_ => async () => foldIterableArray<A>(_)())
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define, @typescript-eslint/explicit-function-return-type
+    T.chain(_ => foldIterableArray<A>(_))
   );
 
 /**
@@ -60,13 +49,23 @@ export const foldTaskEither = <E, A>(onError: (err: unknown) => E) => (
     fa,
     TE.fromTask,
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    TE.chain(_ => TE.tryCatch(async () => foldIterableArray<A>(_)(), onError))
+    TE.chain(_ => TE.tryCatch(() => foldIterableArray<A>(_)(), onError))
   );
 
-const foldIterableArray = <A>(_: AsyncIterable<A>) => async () => {
-  let array: Array<A> = [];
-  for await (const variable of _) {
+/**
+ * Loop through the AsyncIterable collection and return all results
+ *
+ * @param asyncIterable the iterable to be read
+ * @returns a readonly array of all values collected from the iterable
+ */
+const foldIterableArray = <A>(
+  asyncIterable: AsyncIterable<A>
+) => async (): Promise<ReadonlyArray<A>> => {
+  // eslint-disable-next-line functional/prefer-readonly-type
+  const array: A[] = [];
+  for await (const variable of asyncIterable) {
+    // eslint-disable-next-line functional/immutable-data
     array.push(variable);
   }
-  return array as ReadonlyArray<A>;
+  return array;
 };
