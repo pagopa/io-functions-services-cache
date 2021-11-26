@@ -1,77 +1,82 @@
-import { number } from "fp-ts";
 import * as E from "fp-ts/lib/Either";
-import * as TE from "fp-ts/lib/TaskEither";
-import { pipe } from "fp-ts/lib/function";
-import { forEach } from "lodash";
+import { identity, pipe } from "fp-ts/lib/function";
 import * as AI from "../AsyncIterableTask";
 
-async function* yield123() {
-  for (let i = 1; i <= 3; i++) {
-    yield i;
+async function* yieldValues<T>(elements: T[]): AsyncIterable<T> {
+  for (const e of elements) {
+    yield e;
   }
 }
 
-async function* yieldThrowError() {
-  for (let i = 1; i <= 3; i++) {
-    if (i < 3) yield i;
+async function* yieldThrowError<T>(
+  elements: T[],
+  throwAtIndex: number
+): AsyncIterable<T> {
+  for (let i = 0; i <= elements.length; i++) {
+    if (i < throwAtIndex) yield elements[i];
     else throw Error("an Error");
   }
 }
 
 describe("AsyncIterableTask", () => {
   it("fold - should read all values", async () => {
-    const asyncIterable = yield123();
-    const asyncIterator = asyncIterable[Symbol.asyncIterator]();
+    const originalValues = [1, 2, 3];
+    const mapfn = (v: number) => v + 1;
+    const expectedValues = originalValues.map(mapfn);
+    const asyncIterable = yieldValues(originalValues);
 
     const res = await pipe(
-      asyncIterator,
+      asyncIterable,
       AI.fromAsyncIterable,
-      AI.map(v => v + 1),
+      AI.map(mapfn),
       AI.fold
     )();
 
-    expect(res).toEqual([2, 3, 4]);
+    expect(res).toEqual(expectedValues);
   });
 
-  it("flodTaskEither - should process all values", async () => {
-    const asyncIterable = yield123();
-    const asyncIterator = asyncIterable[Symbol.asyncIterator]();
+  it("foldTaskEither - should process all values", async () => {
+    const originalValues = [1, 2, 3];
+    const mapfn = (v: number) => v + 2;
+    const expectedValues = originalValues.map(mapfn);
+    const asyncIterable = yieldValues(originalValues);
 
     let elements = 0;
 
     const res = await pipe(
-      asyncIterator,
+      asyncIterable,
       AI.fromAsyncIterable,
       AI.map(v => {
         elements++;
-        return v + 2;
+        return mapfn(v);
       }),
-      AI.foldTaskEither(_ => _)
+      AI.foldTaskEither(identity)
     )();
 
     expect(elements).toEqual(3);
 
     pipe(
       res,
-      E.map(val => expect(val).toEqual([3, 4, 5])),
+      E.map(val => expect(val).toEqual(expectedValues)),
       E.mapLeft(_ => fail("Error retrieving values"))
     );
   });
 
-  it("flodTaskEither - should handle Errors", async () => {
-    const asyncIterable = yieldThrowError();
-    const asyncIterator = asyncIterable[Symbol.asyncIterator]();
+  it("foldTaskEither - should handle Errors", async () => {
+    const originalValues = [1, 2, 3];
+    const mapfn = (v: number) => v + 2;
+    const asyncIterable = yieldThrowError(originalValues, 2);
 
     let elements = 0;
 
     const res = await pipe(
-      asyncIterator,
+      asyncIterable,
       AI.fromAsyncIterable,
       AI.map(v => {
         elements++;
-        return v + 2;
+        return mapfn(v);
       }),
-      AI.foldTaskEither(_ => _)
+      AI.foldTaskEither(identity)
     )();
 
     expect(elements).toEqual(2);

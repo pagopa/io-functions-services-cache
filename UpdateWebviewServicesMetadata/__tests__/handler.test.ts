@@ -45,11 +45,7 @@ const aServiceLocal = {
 async function* buildServiceIterator(
   list: ReadonlyArray<unknown>,
   errorToThrow?: CosmosErrors
-): AsyncGenerator<
-  ReadonlyArray<t.Validation<RetrievedService>>,
-  void,
-  unknown
-> {
+): AsyncIterable<ReadonlyArray<t.Validation<RetrievedService>>> {
   // eslint-disable-next-line functional/no-let
 
   if (errorToThrow) {
@@ -64,9 +60,7 @@ async function* buildServiceIterator(
 // ----------------------
 // Mocks
 // ----------------------
-const mockCollectionIterator = jest.fn(() =>
-  buildServiceIterator([])[Symbol.asyncIterator]()
-);
+const mockCollectionIterator = jest.fn(() => buildServiceIterator([]));
 
 const mockServiceModel = ({
   getCollectionIterator: mockCollectionIterator
@@ -85,9 +79,7 @@ describe("UpdateWebviewServicesMetadata", () => {
 
   it("should returns bindings for visible services", async () => {
     mockCollectionIterator.mockImplementationOnce(() =>
-      buildServiceIterator([aServiceNational, aServiceLocal])[
-        Symbol.asyncIterator
-      ]()
+      buildServiceIterator([aServiceNational, aServiceLocal])
     );
 
     await UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
@@ -139,7 +131,7 @@ describe("UpdateWebviewServicesMetadata", () => {
             privacyUrl: undefined
           }
         }
-      ])[Symbol.asyncIterator]()
+      ])
     );
 
     await UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
@@ -176,7 +168,7 @@ describe("UpdateWebviewServicesMetadata", () => {
 
   it("should return an empty array if no result was found in CosmosDB", async () => {
     mockCollectionIterator.mockImplementationOnce(() =>
-      buildServiceIterator([])[Symbol.asyncIterator]()
+      buildServiceIterator([])
     );
 
     await UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
@@ -190,7 +182,7 @@ describe("UpdateWebviewServicesMetadata", () => {
     } as CosmosErrors;
 
     mockCollectionIterator.mockImplementationOnce(() =>
-      buildServiceIterator([], expectedCosmosError)[Symbol.asyncIterator]()
+      buildServiceIterator([], expectedCosmosError)
     );
 
     const result = UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
@@ -216,7 +208,7 @@ describe("UpdateWebviewServicesMetadata", () => {
             description: "" // Empty string description
           }
         }
-      ])[Symbol.asyncIterator]()
+      ])
     );
 
     const result = UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
@@ -239,7 +231,7 @@ it("should success if some service has undefined description", async () => {
           description: undefined
         }
       }
-    ])[Symbol.asyncIterator]()
+    ])
   );
 
   const result = await UpdateWebviewServicesMetadata(
