@@ -23,7 +23,7 @@ const aRetrievedService: RetrievedService = {
   kind: "IRetrievedService"
 };
 
-jest.setTimeout(5000 * 1000);
+jest.setTimeout(3600 * 1000);
 
 const mockFetchAll = jest.fn();
 const mockGetAsyncIterator = jest.fn();
@@ -105,7 +105,7 @@ describe("listLastVersionServices", () => {
     if (E.isRight(res)) {
       expect(isSome(res.right)).toBeTruthy();
       if (isSome(res.right)) {
-        console.log("ARRAY LENGHT: " + res.right.value.length);
+        expect(res.right.value).toHaveLength(maxServices);
       }
     }
   });
@@ -121,7 +121,7 @@ describe("listLastVersionServices", () => {
     console.log("EXECUTION: ", end - start);
 
     expect(E.isRight(res)).toBeTruthy();
-    if (E.isRight(res)) console.log("ARRAY LENGHT: " + res.right.length);
+    if (E.isRight(res)) expect(res.right).toHaveLength(maxServices);
   });
 
   it("array equals", async () => {
@@ -130,6 +130,8 @@ describe("listLastVersionServices", () => {
     mockGetAsyncIterator.mockReturnValueOnce(asyncIterable);
     const modelOld = new ServiceModel(containerMock);
     const res = await modelOld.listLastVersionServices()();
+
+    expect(E.isRight(res)).toBeTruthy();
     if (E.isRight(res))
       if (isSome(res.right)) {
         resOldArray = res.right.value;
@@ -140,6 +142,7 @@ describe("listLastVersionServices", () => {
 
     const resNew = await listLastVersionServices(model1)();
 
+    expect(E.isRight(resNew)).toBeTruthy();
     if (E.isRight(resNew)) {
       const resNewArray = resNew.right;
 

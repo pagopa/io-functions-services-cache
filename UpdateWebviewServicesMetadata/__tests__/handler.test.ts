@@ -84,6 +84,7 @@ describe("UpdateWebviewServicesMetadata", () => {
 
     await UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
 
+    expect(mockCollectionIterator).toBeCalledTimes(1);
     expect(context).toHaveProperty("bindings.visibleServicesCompact", [
       {
         fc: aServiceLocal.organizationFiscalCode,
@@ -136,6 +137,7 @@ describe("UpdateWebviewServicesMetadata", () => {
 
     await UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
 
+    expect(mockCollectionIterator).toBeCalledTimes(1);
     expect(context).toHaveProperty("bindings.visibleServicesCompact", [
       {
         fc: aServiceLocal.organizationFiscalCode,
@@ -172,6 +174,8 @@ describe("UpdateWebviewServicesMetadata", () => {
     );
 
     await UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
+
+    expect(mockCollectionIterator).toBeCalledTimes(1);
     expect(context).toHaveProperty("bindings.visibleServicesCompact", []);
     expect(context).toHaveProperty("bindings.visibleServicesExtended", []);
   });
@@ -186,6 +190,8 @@ describe("UpdateWebviewServicesMetadata", () => {
     );
 
     const result = UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
+
+    expect(mockCollectionIterator).toBeCalledTimes(1);
     await expect(result).rejects.toThrowError(
       "Error reading services from Cosmos or decoding output bindings"
     );
@@ -212,6 +218,8 @@ describe("UpdateWebviewServicesMetadata", () => {
     );
 
     const result = UpdateWebviewServicesMetadata(mockServiceModel, [])(context);
+
+    expect(mockCollectionIterator).toBeCalledTimes(1);
     await expect(result).rejects.toThrowError(
       "Error reading services from Cosmos or decoding output bindings"
     );
@@ -219,25 +227,27 @@ describe("UpdateWebviewServicesMetadata", () => {
     expect(context).not.toHaveProperty("bindings.visibleServicesCompact");
     expect(context).not.toHaveProperty("bindings.visibleServicesExtended");
   });
-});
 
-it("should success if some service has undefined description", async () => {
-  mockCollectionIterator.mockImplementationOnce(() =>
-    buildServiceIterator([
-      {
-        ...aServiceLocal,
-        serviceMetadata: {
-          ...aServiceLocal.serviceMetadata,
-          description: undefined
+  it("should success if some service has undefined description", async () => {
+    mockCollectionIterator.mockImplementationOnce(() =>
+      buildServiceIterator([
+        {
+          ...aServiceLocal,
+          serviceMetadata: {
+            ...aServiceLocal.serviceMetadata,
+            description: undefined
+          }
         }
-      }
-    ])
-  );
+      ])
+    );
 
-  const result = await UpdateWebviewServicesMetadata(
-    mockServiceModel,
-    []
-  )(context);
-  expect(context).toHaveProperty("bindings.visibleServicesCompact");
-  expect(context).toHaveProperty("bindings.visibleServicesExtended");
+    const result = await UpdateWebviewServicesMetadata(
+      mockServiceModel,
+      []
+    )(context);
+
+    expect(mockCollectionIterator).toBeCalledTimes(1);
+    expect(context).toHaveProperty("bindings.visibleServicesCompact");
+    expect(context).toHaveProperty("bindings.visibleServicesExtended");
+  });
 });

@@ -105,7 +105,6 @@ export const listLastVersionServices = (
           // eslint-disable-next-line functional/immutable-data
           acc[val.serviceId] = val;
         }
-
         return acc;
       })
     ),
