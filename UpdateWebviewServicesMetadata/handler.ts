@@ -15,8 +15,10 @@ import { pipe } from "fp-ts/lib/function";
 import * as t from "io-ts";
 import * as E from "fp-ts/lib/Either";
 import * as TE from "fp-ts/lib/TaskEither";
-import * as O from "fp-ts/lib/Option";
 import * as T from "fp-ts/lib/Task";
+import * as RA from "fp-ts/ReadonlyArray";
+
+import * as AI from "../utils/AsyncIterableTask";
 
 const ServiceExportCompact = t.interface({
   // Service Id
@@ -74,6 +76,40 @@ const ServicesOutputBindings = t.interface({
   visibleServicesExtended: t.readonlyArray(ServicesExportExtended)
 });
 type ServicesOutputBindings = t.TypeOf<typeof ServicesOutputBindings>;
+
+/**
+ * List all services, last version only
+ *
+ * @param serviceModel Services Cosmosdb model
+ * @returns a task containing either an Error or the list of services
+ */
+export const listLastVersionServices = (
+  serviceModel: ServiceModel
+): TE.TaskEither<Error, ReadonlyArray<RetrievedService>> =>
+  pipe(
+    serviceModel.getCollectionIterator(),
+    T.of,
+    AI.foldTaskEither(_ => new Error(`Error retrieving data from cosmos.`)),
+    TE.map(RA.flatten),
+    TE.chainW(_ => {
+      const lefts = RA.lefts(_);
+      return lefts.length > 0
+        ? TE.left<Error, ReadonlyArray<RetrievedService>>(
+            new Error(`${lefts.length} service(s) with decoding errors found.`)
+          )
+        : TE.of<Error, ReadonlyArray<RetrievedService>>(RA.rights(_));
+    }),
+    TE.map(
+      RA.reduce({} as Record<string, RetrievedService>, (acc, val) => {
+        if (!acc[val.serviceId] || acc[val.serviceId].version < val.version) {
+          // eslint-disable-next-line functional/immutable-data
+          acc[val.serviceId] = val;
+        }
+        return acc;
+      })
+    ),
+    TE.map(v => Object.values(v))
+  );
 
 /**
  * Create a service mapper helper to minimize the Service object size.
@@ -154,23 +190,9 @@ export const UpdateWebviewServicesMetadata = (
   serviceIdExclusionList: ReadonlyArray<NonEmptyString>
 ) => async (context: Context): Promise<unknown> =>
   pipe(
-    serviceModel.listLastVersionServices(),
-    TE.mapLeft(
-      cosmosError =>
-        new Error(
-          `${cosmosError.kind}|${
-            cosmosError.kind !== "COSMOS_EMPTY_RESPONSE"
-              ? cosmosError.error
-              : ""
-          }`
-        )
-    ),
-    TE.map(maybeServices => {
-      if (O.isNone(maybeServices)) {
-        return [];
-      }
-      return maybeServices.value;
-    }),
+    serviceModel,
+    listLastVersionServices,
+
     TE.map(services =>
       services
         .filter(service => service.isVisible)
